@@ -218,17 +218,20 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                 if (p === 'map') {
                     return <
                         TSource extends Dictionary<TSource>,
-                        TDestination extends Dictionary<TDestination>
+                        TDestination extends Dictionary<TDestination>,
+                        IsAsync extends boolean = false,
+                        Result = IsAsync extends true ? Promise<TDestination> : TDestination
                     >(
                         sourceObject: TSource,
                         sourceIdentifier: ModelIdentifier<TSource>,
                         destinationIdentifierOrOptions?:
                             | ModelIdentifier<TDestination>
                             | MapOptions<TSource, TDestination>,
-                        options?: MapOptions<TSource, TDestination>
-                    ): TDestination => {
+                        options?: MapOptions<TSource, TDestination>,
+                        isAsync?: IsAsync
+                    ): Result => {
                         if (sourceObject == null)
-                            return sourceObject as TDestination;
+                            return (isAsync ? Promise.resolve<Result>(sourceObject) : sourceObject) as Result;
 
                         const { destinationIdentifier, mapOptions } =
                             getOptions(
@@ -243,15 +246,41 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                             destinationIdentifier
                         );
 
+                        // ASYNCRONOUS
+                        if (isAsync) {
+                            return Promise.resolve(sourceObject)
+                              .then(async (sourceObject) => {
+                                sourceObject = await strategy.preMap(sourceObject, mapping);
+
+                                let destination = await mapReturn<TSource, TDestination, true>(
+                                    mapping,
+                                    sourceObject,
+                                    <MapOptions<TSource, TDestination>> mapOptions || {},
+                                    false, // isMapArray
+                                    isAsync,
+                                );
+
+                                destination = await strategy.postMap(
+                                    sourceObject,
+                                    destination,
+                                    mapping,
+                                );
+
+                                return destination;
+                            }) as Result;
+                        }
+
+                        // SYNCRONOUS
+
                         sourceObject = strategy.preMap(sourceObject, mapping);
 
-                        const destination = mapReturn(
+                        let destination = mapReturn<TSource, TDestination, IsAsync, Result>(
                             mapping,
                             sourceObject,
-                            mapOptions || {}
+                            <MapOptions<TSource, TDestination>> mapOptions || {}
                         );
 
-                        return strategy.postMap(
+                        destination =  strategy.postMap(
                             sourceObject,
                             // seal destination so that consumers cannot add properties to it
                             // or change the property descriptors. but they can still modify it
@@ -259,6 +288,8 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                             destination,
                             mapping
                         );
+
+                        return destination;
                     };
                 }
 
@@ -274,31 +305,32 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                             | MapOptions<TSource, TDestination>,
                         options?: MapOptions<TSource, TDestination>
                     ): Promise<TDestination> => {
-                        const result = receiver['map'](
+                        return receiver['map'](
                             sourceObject,
                             sourceIdentifier,
                             destinationIdentifierOrOptions,
-                            options
+                            options,
+                            true
                         );
-                        return new Promise((res) => {
-                            setTimeout(res, 0, result);
-                        });
                     };
                 }
 
                 if (p === 'mapArray') {
                     return <
                         TSource extends Dictionary<TSource>,
-                        TDestination extends Dictionary<TDestination>
+                        TDestination extends Dictionary<TDestination>,
+                        IsAsync extends boolean = false,
+                        Result = IsAsync extends true ? Promise<TDestination[]> : TDestination[]
                     >(
                         sourceArray: TSource[],
                         sourceIdentifier: ModelIdentifier<TSource>,
                         destinationIdentifierOrOptions?:
                             | ModelIdentifier<TDestination>
                             | MapOptions<TSource[], TDestination[]>,
-                        options?: MapOptions<TSource[], TDestination[]>
-                    ): TDestination[] => {
-                        if (!sourceArray.length) return [];
+                        options?: MapOptions<TSource[], TDestination[]>,
+                        isAsync?: IsAsync
+                    ): Result => {
+                        if (!sourceArray.length) return (isAsync ? Promise.resolve<TDestination[]>([]) : []) as Result;
 
                         const { destinationIdentifier, mapOptions } =
                             getOptions(
@@ -319,6 +351,65 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                                 TDestination[]
                             >;
 
+                        // ASYNCRONOUS
+                        if (isAsync) {
+                            return Promise.resolve<{
+                                  sourceArray: TSource[];
+                                  destinationArray: TDestination[];
+                              }>({
+                                sourceArray,
+                                destinationArray: [],
+                              }).then(async ({ sourceArray, destinationArray }) => {
+                                if (beforeMap) {
+                                  await beforeMap(sourceArray, []);
+                                }
+
+                                for (
+                                    let i = 0, length = sourceArray.length;
+                                    i < length;
+                                    i++
+                                ) {
+                                    let sourceObject = sourceArray[i];
+                                    sourceObject = await strategy.preMap(
+                                        sourceObject,
+                                        mapping
+                                    );
+
+                                    let destination = await mapReturn<TSource, TDestination, true>(
+                                        mapping,
+                                        sourceObject,
+                                        {
+                                            extraArgs: extraArgs as MapOptions<
+                                                TSource,
+                                                TDestination
+                                            >['extraArgs'],
+                                        },
+                                        true, // isMapArray
+                                        isAsync,
+                                    );
+
+                                    destination = await strategy.postMap(
+                                        sourceObject,
+                                        // seal destination so that consumers cannot add properties to it
+                                        // or change the property descriptors. but they can still modify it
+                                        // the ideal behavior is seal but the consumers might need to add/modify the object after map finishes
+                                        destination,
+                                        mapping
+                                    );
+
+                                    destinationArray.push(destination);
+                                }
+
+                                if (afterMap) {
+                                  await afterMap(sourceArray, destinationArray);
+                                }
+
+                                return destinationArray;
+                            }) as Result;
+                        }
+
+                        // SYNCRONOUS
+
                         if (beforeMap) {
                             beforeMap(sourceArray, []);
                         }
@@ -336,7 +427,7 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                                 mapping
                             );
 
-                            const destination = mapReturn(
+                            let destination = mapReturn<TSource, TDestination, false>(
                                 mapping,
                                 sourceObject,
                                 {
@@ -348,23 +439,23 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                                 true
                             );
 
-                            destinationArray.push(
-                                strategy.postMap(
-                                    sourceObject,
-                                    // seal destination so that consumers cannot add properties to it
-                                    // or change the property descriptors. but they can still modify it
-                                    // the ideal behavior is seal but the consumers might need to add/modify the object after map finishes
-                                    destination,
-                                    mapping
-                                ) as TDestination
+                            destination = strategy.postMap(
+                                sourceObject,
+                                // seal destination so that consumers cannot add properties to it
+                                // or change the property descriptors. but they can still modify it
+                                // the ideal behavior is seal but the consumers might need to add/modify the object after map finishes
+                                destination,
+                                mapping
                             );
+
+                            destinationArray.push(destination);
                         }
 
                         if (afterMap) {
                             afterMap(sourceArray, destinationArray);
                         }
 
-                        return destinationArray;
+                        return destinationArray as Result;
                     };
                 }
 
@@ -380,15 +471,13 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                             | MapOptions<TSource[], TDestination[]>,
                         options?: MapOptions<TSource[], TDestination[]>
                     ) => {
-                        const result = receiver['mapArray'](
-                            sourceArray,
-                            sourceIdentifier,
-                            destinationIdentifierOrOptions,
-                            options
-                        );
-                        return new Promise((res) => {
-                            setTimeout(res, 0, result);
-                        });
+                        return receiver['mapArray'](
+                                sourceArray,
+                                sourceIdentifier,
+                                destinationIdentifierOrOptions,
+                                options,
+                                true
+                            );
                     };
                 }
 

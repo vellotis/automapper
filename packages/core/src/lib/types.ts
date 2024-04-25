@@ -102,7 +102,7 @@ export type MapCallback<
     source: TSource,
     destination: TDestination,
     extraArguments?: TExtraArgs
-) => void;
+) => void | Promise<void>;
 
 export interface MapOptions<
     TSource extends Dictionary<TSource>,

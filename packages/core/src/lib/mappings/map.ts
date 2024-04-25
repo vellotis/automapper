@@ -4,6 +4,7 @@ import type {
     Dictionary,
     MapInitializeReturn,
     MapOptions,
+    Mapper,
     Mapping,
     MetadataIdentifier,
 } from '../types';
@@ -31,20 +32,23 @@ function setMemberReturnFn<TDestination extends Dictionary<TDestination> = any>(
 
 export function mapReturn<
     TSource extends Dictionary<TSource>,
-    TDestination extends Dictionary<TDestination>
+    TDestination extends Dictionary<TDestination>,
+    IsAsync extends boolean = false,
+    Result = IsAsync extends true ? Promise<TDestination> : TDestination
 >(
     mapping: Mapping<TSource, TDestination>,
     sourceObject: TSource,
     options: MapOptions<TSource, TDestination>,
-    isMapArray = false
-): TDestination {
-    return map<TSource, TDestination>({
+    isMapArray = false,
+    isAsync?: IsAsync
+): Result {
+    return map<TSource, TDestination, IsAsync, Result>({
         mapping,
         sourceObject,
         options,
         setMemberFn: setMemberReturnFn,
         isMapArray,
-    });
+    }, isAsync);
 }
 
 function setMemberMutateFn(destinationObj: Record<string, unknown>) {
@@ -99,7 +103,9 @@ interface MapParameter<
 
 export function map<
     TSource extends Dictionary<TSource>,
-    TDestination extends Dictionary<TDestination>
+    TDestination extends Dictionary<TDestination>,
+    IsAsync extends boolean = false,
+    Result = IsAsync extends true ? Promise<TDestination> : TDestination
 >({
     mapping,
     sourceObject,
@@ -107,7 +113,7 @@ export function map<
     setMemberFn,
     getMemberFn,
     isMapArray = false,
-}: MapParameter<TSource, TDestination>): TDestination {
+}: MapParameter<TSource, TDestination>, isAsync?: IsAsync): Result {
     // destructure mapping
     const [
         [sourceIdentifier, destinationIdentifier],
@@ -143,6 +149,60 @@ export function map<
     // initialize an array of keys that have already been configured
     const configuredKeys: string[] = [];
 
+    if (isAsync) {
+        return Promise.resolve<{
+            sourceObject: TSource;
+            destination: TDestination;
+          }>({
+              sourceObject,
+              destination,
+          }).then(async ({
+              sourceObject,
+              destination,
+          }) => {
+              if (!isMapArray) {
+                const beforeMap = mapBeforeCallback ?? mappingBeforeCallback;
+                if (beforeMap) {
+                    await beforeMap(sourceObject, destination, extraArguments);
+                }
+              }
+
+              _mapInternalLogic({
+                  propsToMap,
+                  destination,
+                  mapper,
+                  setMemberFn,
+                  getMemberFn,
+                  sourceObject,
+                  destinationIdentifier,
+                  extraArguments,
+                  configuredKeys,
+                  errorHandler,
+                  extraArgs,
+                  metadataMap,
+              });
+
+              if (!isMapArray) {
+                  const afterMap = mapAfterCallback ?? mappingAfterCallback;
+                  if (afterMap) {
+                      await afterMap(sourceObject, destination, extraArguments);
+                  }
+              }
+
+              // Check unmapped properties
+              assertUnmappedProperties(
+                  destination,
+                  destinationWithMetadata,
+                  configuredKeys,
+                  sourceIdentifier,
+                  destinationIdentifier,
+                  errorHandler
+              );
+
+              return destination;
+          }) as Result;
+    }
+
     if (!isMapArray) {
         const beforeMap = mapBeforeCallback ?? mappingBeforeCallback;
         if (beforeMap) {
@@ -151,207 +211,20 @@ export function map<
     }
 
     // map
-    for (let i = 0, length = propsToMap.length; i < length; i++) {
-        // destructure mapping property
-        const [
-            destinationMemberPath,
-            [
-                ,
-                [
-                    transformationMapFn,
-                    [
-                        transformationPreConditionPredicate,
-                        transformationPreConditionDefaultValue = undefined,
-                    ] = [],
-                ],
-            ],
-            [destinationMemberIdentifier, sourceMemberIdentifier] = [],
-        ] = propsToMap[i];
-
-        let hasSameIdentifier =
-            !isPrimitiveConstructor(destinationMemberIdentifier) &&
-            !isDateConstructor(destinationMemberIdentifier) &&
-            !isPrimitiveConstructor(sourceMemberIdentifier) &&
-            !isDateConstructor(sourceMemberIdentifier) &&
-            sourceMemberIdentifier === destinationMemberIdentifier;
-
-        if (hasSameIdentifier) {
-            // at this point, we have a same identifier that aren't primitive or date
-            // we then check if there is a mapping created for this identifier
-            hasSameIdentifier = !getMapping(
-                mapper,
-                sourceMemberIdentifier as MetadataIdentifier,
-                destinationMemberIdentifier as MetadataIdentifier,
-                true
-            );
-        }
-
-        // Set up a shortcut function to set destinationMemberPath on destination with value as argument
-        const setMember = (valFn: () => unknown) => {
-            try {
-                return setMemberFn(destinationMemberPath, destination)(valFn());
-            } catch (originalError) {
-                const errorMessage = `
-Error at "${destinationMemberPath}" on ${
-                    (destinationIdentifier as Constructor)['prototype']
-                        ?.constructor?.name || destinationIdentifier.toString()
-                } (${JSON.stringify(destination)})
----------------------------------------------------------------------
-Original error: ${originalError}`;
-                errorHandler.handle(errorMessage);
-                throw new Error(errorMessage);
-            }
-        };
-
-        // This destination key is being configured. Push to configuredKeys array
-        configuredKeys.push(destinationMemberPath[0]);
-
-        // Pre Condition check
-        if (
-            transformationPreConditionPredicate &&
-            !transformationPreConditionPredicate(sourceObject)
-        ) {
-            setMember(() => transformationPreConditionDefaultValue);
-            continue;
-        }
-
-        // Start with all the mapInitialize
-        if (
-            transformationMapFn[MapFnClassId.type] ===
-            TransformationType.MapInitialize
-        ) {
-            // check if metadata as destinationMemberPath is null
-            const destinationMetadata = metadataMap.get(destinationIdentifier);
-            const hasNullMetadata =
-                destinationMetadata &&
-                destinationMetadata.find((metadata) =>
-                    isPrimitiveArrayEqual(
-                        metadata[MetadataClassId.propertyKeys],
-                        destinationMemberPath
-                    )
-                ) === null;
-
-            const mapInitializedValue = (
-                transformationMapFn[MapFnClassId.fn] as MapInitializeReturn<
-                    TSource,
-                    TDestination
-                >[MapFnClassId.fn]
-            )(sourceObject);
-            const isTypedConverted =
-                transformationMapFn[MapFnClassId.isConverted];
-
-            // if null/undefined
-            // if isDate, isFile
-            // if metadata is null, treat as-is
-            // if it has same identifier that are not primitives or Date
-            // if the initialized value was converted with typeConverter
-            if (
-                mapInitializedValue == null ||
-                mapInitializedValue instanceof Date ||
-                Object.prototype.toString
-                    .call(mapInitializedValue)
-                    .slice(8, -1) === 'File' ||
-                hasNullMetadata ||
-                hasSameIdentifier ||
-                isTypedConverted
-            ) {
-                setMember(() => mapInitializedValue);
-                continue;
-            }
-
-            // if isArray
-            if (Array.isArray(mapInitializedValue)) {
-                const [first] = mapInitializedValue;
-                // if first item is a primitive
-                if (
-                    typeof first !== 'object' ||
-                    first instanceof Date ||
-                    Object.prototype.toString.call(first).slice(8, -1) ===
-                        'File'
-                ) {
-                    setMember(() => mapInitializedValue.slice());
-                    continue;
-                }
-
-                // if first is empty
-                if (isEmpty(first)) {
-                    setMember(() => []);
-                    continue;
-                }
-
-                // if first is object but the destination identifier is a primitive
-                // then skip completely
-                if (isPrimitiveConstructor(destinationMemberIdentifier)) {
-                    continue;
-                }
-
-                setMember(() =>
-                    mapInitializedValue.map((each) =>
-                        mapReturn(
-                            getMapping(
-                                mapper,
-                                sourceMemberIdentifier as MetadataIdentifier,
-                                destinationMemberIdentifier as MetadataIdentifier
-                            ),
-                            each,
-                            { extraArgs }
-                        )
-                    )
-                );
-                continue;
-            }
-
-            if (typeof mapInitializedValue === 'object') {
-                const nestedMapping = getMapping(
-                    mapper,
-                    sourceMemberIdentifier as MetadataIdentifier,
-                    destinationMemberIdentifier as MetadataIdentifier
-                );
-
-                // nested mutate
-                if (getMemberFn) {
-                    const memberValue = getMemberFn(destinationMemberPath);
-                    if (memberValue !== undefined) {
-                        map({
-                            sourceObject: mapInitializedValue as TSource,
-                            mapping: nestedMapping,
-                            options: { extraArgs },
-                            setMemberFn: setMemberMutateFn(memberValue),
-                            getMemberFn: getMemberMutateFn(memberValue),
-                        });
-                    }
-                    continue;
-                }
-
-                setMember(() =>
-                    map({
-                        mapping: nestedMapping,
-                        sourceObject: mapInitializedValue as TSource,
-                        options: { extraArgs },
-                        setMemberFn: setMemberReturnFn,
-                    })
-                );
-                continue;
-            }
-
-            // if is primitive
-            setMember(() => mapInitializedValue);
-            continue;
-        }
-
-        setMember(() =>
-            mapMember(
-                transformationMapFn,
-                sourceObject,
-                destination,
-                destinationMemberPath,
-                extraArguments,
-                mapper,
-                sourceMemberIdentifier,
-                destinationMemberIdentifier
-            )
-        );
-    }
+    _mapInternalLogic({
+        propsToMap,
+        destination,
+        mapper,
+        setMemberFn,
+        getMemberFn,
+        sourceObject,
+        destinationIdentifier,
+        extraArguments,
+        configuredKeys,
+        errorHandler,
+        extraArgs,
+        metadataMap,
+    });
 
     if (!isMapArray) {
         const afterMap = mapAfterCallback ?? mappingAfterCallback;
@@ -370,5 +243,238 @@ Original error: ${originalError}`;
         errorHandler
     );
 
-    return destination;
+    return destination as unknown as Result;
+}
+
+function _mapInternalLogic<
+TSource extends Dictionary<TSource>,
+TDestination extends Dictionary<TDestination>
+>({
+  propsToMap,
+  destination,
+  mapper,
+  setMemberFn,
+  getMemberFn,
+  sourceObject,
+  destinationIdentifier,
+  extraArguments,
+  configuredKeys,
+  errorHandler,
+  extraArgs,
+  metadataMap,
+}: {
+  propsToMap: Mapping<TSource, TDestination>[2],
+  destination: TDestination,
+  mapper: Mapper,
+  setMemberFn: MapParameter<TSource, TDestination>['setMemberFn'],
+  getMemberFn: MapParameter<TSource, TDestination>['getMemberFn'],
+  sourceObject: TSource,
+  destinationIdentifier: MetadataIdentifier<TDestination>,
+  extraArguments?: Record<string, any>,
+  configuredKeys: string[],
+  errorHandler: ReturnType<typeof getErrorHandler>,
+  extraArgs: MapOptions<TSource, TDestination>['extraArgs'],
+  metadataMap: ReturnType<typeof getMetadataMap>,
+}) {
+  for (let i = 0, length = propsToMap.length; i < length; i++) {
+    // destructure mapping property
+    const [
+        destinationMemberPath,
+        [
+            ,
+            [
+                transformationMapFn,
+                [
+                    transformationPreConditionPredicate,
+                    transformationPreConditionDefaultValue = undefined,
+                ] = [],
+            ],
+        ],
+        [destinationMemberIdentifier, sourceMemberIdentifier] = [],
+    ] = propsToMap[i];
+
+    let hasSameIdentifier =
+        !isPrimitiveConstructor(destinationMemberIdentifier) &&
+        !isDateConstructor(destinationMemberIdentifier) &&
+        !isPrimitiveConstructor(sourceMemberIdentifier) &&
+        !isDateConstructor(sourceMemberIdentifier) &&
+        sourceMemberIdentifier === destinationMemberIdentifier;
+
+    if (hasSameIdentifier) {
+        // at this point, we have a same identifier that aren't primitive or date
+        // we then check if there is a mapping created for this identifier
+        hasSameIdentifier = !getMapping(
+            mapper,
+            sourceMemberIdentifier as MetadataIdentifier,
+            destinationMemberIdentifier as MetadataIdentifier,
+            true
+        );
+    }
+
+    // Set up a shortcut function to set destinationMemberPath on destination with value as argument
+    const setMember = (valFn: () => unknown) => {
+        try {
+            return setMemberFn(destinationMemberPath, destination)(valFn());
+        } catch (originalError) {
+            const errorMessage = `
+Error at "${destinationMemberPath}" on ${
+                (destinationIdentifier as Constructor)['prototype']
+                    ?.constructor?.name || destinationIdentifier.toString()
+            } (${JSON.stringify(destination)})
+---------------------------------------------------------------------
+Original error: ${originalError}`;
+            errorHandler.handle(errorMessage);
+            throw new Error(errorMessage);
+        }
+    };
+
+    // This destination key is being configured. Push to configuredKeys array
+    configuredKeys.push(destinationMemberPath[0]);
+
+    // Pre Condition check
+    if (
+        transformationPreConditionPredicate &&
+        !transformationPreConditionPredicate(sourceObject)
+    ) {
+        setMember(() => transformationPreConditionDefaultValue);
+        continue;
+    }
+
+    // Start with all the mapInitialize
+    if (
+        transformationMapFn[MapFnClassId.type] ===
+        TransformationType.MapInitialize
+    ) {
+        // check if metadata as destinationMemberPath is null
+        const destinationMetadata = metadataMap.get(destinationIdentifier);
+        const hasNullMetadata =
+            destinationMetadata &&
+            destinationMetadata.find((metadata) =>
+                isPrimitiveArrayEqual(
+                    metadata[MetadataClassId.propertyKeys],
+                    destinationMemberPath
+                )
+            ) === null;
+
+        const mapInitializedValue = (
+            transformationMapFn[MapFnClassId.fn] as MapInitializeReturn<
+                TSource,
+                TDestination
+            >[MapFnClassId.fn]
+        )(sourceObject);
+        const isTypedConverted =
+            transformationMapFn[MapFnClassId.isConverted];
+
+        // if null/undefined
+        // if isDate, isFile
+        // if metadata is null, treat as-is
+        // if it has same identifier that are not primitives or Date
+        // if the initialized value was converted with typeConverter
+        if (
+            mapInitializedValue == null ||
+            mapInitializedValue instanceof Date ||
+            Object.prototype.toString
+                .call(mapInitializedValue)
+                .slice(8, -1) === 'File' ||
+            hasNullMetadata ||
+            hasSameIdentifier ||
+            isTypedConverted
+        ) {
+            setMember(() => mapInitializedValue);
+            continue;
+        }
+
+        // if isArray
+        if (Array.isArray(mapInitializedValue)) {
+            const [first] = mapInitializedValue;
+            // if first item is a primitive
+            if (
+                typeof first !== 'object' ||
+                first instanceof Date ||
+                Object.prototype.toString.call(first).slice(8, -1) ===
+                    'File'
+            ) {
+                setMember(() => mapInitializedValue.slice());
+                continue;
+            }
+
+            // if first is empty
+            if (isEmpty(first)) {
+                setMember(() => []);
+                continue;
+            }
+
+            // if first is object but the destination identifier is a primitive
+            // then skip completely
+            if (isPrimitiveConstructor(destinationMemberIdentifier)) {
+                continue;
+            }
+
+            setMember(() =>
+                mapInitializedValue.map((each) =>
+                    mapReturn(
+                        getMapping(
+                            mapper,
+                            sourceMemberIdentifier as MetadataIdentifier,
+                            destinationMemberIdentifier as MetadataIdentifier
+                        ),
+                        each,
+                        { extraArgs }
+                    )
+                )
+            );
+            continue;
+        }
+
+        if (typeof mapInitializedValue === 'object') {
+            const nestedMapping = getMapping(
+                mapper,
+                sourceMemberIdentifier as MetadataIdentifier,
+                destinationMemberIdentifier as MetadataIdentifier
+            );
+
+            // nested mutate
+            if (getMemberFn) {
+                const memberValue = getMemberFn(destinationMemberPath);
+                if (memberValue !== undefined) {
+                    map({
+                        sourceObject: mapInitializedValue as TSource,
+                        mapping: nestedMapping,
+                        options: { extraArgs },
+                        setMemberFn: setMemberMutateFn(memberValue),
+                        getMemberFn: getMemberMutateFn(memberValue),
+                    });
+                }
+                continue;
+            }
+
+            setMember(() =>
+                map({
+                    mapping: nestedMapping,
+                    sourceObject: mapInitializedValue as TSource,
+                    options: { extraArgs },
+                    setMemberFn: setMemberReturnFn,
+                })
+            );
+            continue;
+        }
+
+        // if is primitive
+        setMember(() => mapInitializedValue);
+        continue;
+    }
+
+    setMember(() =>
+        mapMember(
+            transformationMapFn,
+            sourceObject,
+            destination,
+            destinationMemberPath,
+            extraArguments,
+            mapper,
+            sourceMemberIdentifier,
+            destinationMemberIdentifier
+        )
+    );
+  }
 }
