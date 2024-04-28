@@ -66,14 +66,30 @@ function getMemberMutateFn(destinationObj: Record<string, unknown>) {
 
 export function mapMutate<
     TSource extends Dictionary<TSource>,
-    TDestination extends Dictionary<TDestination>
+    TDestination extends Dictionary<TDestination>,
+    IsAsync extends boolean | undefined = undefined,
+    Result = IsAsync extends true ? Promise<void> : void
 >(
     mapping: Mapping<TSource, TDestination>,
     sourceObject: TSource,
     destinationObj: TDestination,
     options: MapOptions<TSource, TDestination>,
-    isMapArray = false
-): void {
+    isMapArray = false,
+    isAsync?: IsAsync
+): Result {
+    if (isAsync) {
+        return Promise.resolve().then(async () => {
+            await map({
+                sourceObject,
+                mapping,
+                setMemberFn: setMemberMutateFn(destinationObj),
+                getMemberFn: getMemberMutateFn(destinationObj),
+                options,
+                isMapArray,
+            }, isAsync);
+        }) as Result;
+    }
+
     map({
         sourceObject,
         mapping,
@@ -82,6 +98,8 @@ export function mapMutate<
         options,
         isMapArray,
     });
+
+    return undefined as unknown as Result;
 }
 
 interface MapParameter<

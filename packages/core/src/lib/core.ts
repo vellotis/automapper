@@ -484,7 +484,9 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                 if (p === 'mutate') {
                     return <
                         TSource extends Dictionary<TSource>,
-                        TDestination extends Dictionary<TDestination>
+                        TDestination extends Dictionary<TDestination>,
+                        IsAsync extends boolean | undefined = undefined,
+                        Result = IsAsync extends true ? Promise<void> : void
                     >(
                         sourceObject: TSource,
                         destinationObject: TDestination,
@@ -492,9 +494,10 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                         destinationIdentifierOrOptions?:
                             | ModelIdentifier<TDestination>
                             | MapOptions<TSource, TDestination>,
-                        options?: MapOptions<TSource, TDestination>
-                    ) => {
-                        if (sourceObject == null) return;
+                        options?: MapOptions<TSource, TDestination>,
+                        isAsync?: IsAsync
+                    ): Result => {
+                        if (sourceObject == null) return (isAsync ? Promise.resolve() : undefined) as Result;
 
                         const { destinationIdentifier, mapOptions } =
                             getOptions(
@@ -508,6 +511,29 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                             sourceIdentifier,
                             destinationIdentifier
                         );
+
+                        if (isAsync) {
+                          return Promise.resolve(sourceObject).then(async (sourceObject) => {
+                            sourceObject = await strategy.preMap(sourceObject, mapping);
+
+                            await mapMutate(
+                                mapping,
+                                sourceObject,
+                                destinationObject,
+                                <MapOptions<TSource, TDestination>> mapOptions || {},
+                                false, // isMapArray
+                                isAsync
+                            );
+
+                            await strategy.postMap(
+                                sourceObject,
+                                destinationObject,
+                                mapping
+                            );
+
+                            return undefined;
+                          }) as Result;
+                        }
 
                         sourceObject = strategy.preMap(sourceObject, mapping);
 
@@ -523,6 +549,8 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                             destinationObject,
                             mapping
                         );
+
+                        return undefined as Result;
                     };
                 }
                 if (p === 'mutateAsync') {
@@ -538,24 +566,23 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                             | MapOptions<TSource, TDestination>,
                         options?: MapOptions<TSource, TDestination>
                     ) => {
-                        return new Promise((res) => {
-                            receiver['mutate'](
-                                sourceObject,
-                                destinationObject,
-                                sourceIdentifier,
-                                destinationIdentifierOrOptions,
-                                options
-                            );
-
-                            setTimeout(res, 0);
-                        });
+                        return receiver['mutate'](
+                            sourceObject,
+                            destinationObject,
+                            sourceIdentifier,
+                            destinationIdentifierOrOptions,
+                            options,
+                            true
+                        );
                     };
                 }
 
                 if (p === 'mutateArray') {
                     return <
                         TSource extends Dictionary<TSource>,
-                        TDestination extends Dictionary<TDestination>
+                        TDestination extends Dictionary<TDestination>,
+                        IsAsync extends boolean | undefined = undefined,
+                        Result = IsAsync extends true ? Promise<void> : void
                     >(
                         sourceArray: TSource[],
                         destinationArray: TDestination[],
@@ -563,9 +590,10 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                         destinationIdentifierOrOptions?:
                             | ModelIdentifier<TDestination>
                             | MapOptions<TSource[], TDestination[]>,
-                        options?: MapOptions<TSource[], TDestination[]>
-                    ) => {
-                        if (!sourceArray.length) return;
+                        options?: MapOptions<TSource[], TDestination[]>,
+                        isAsync?: IsAsync
+                    ): Result => {
+                        if (!sourceArray.length) return (isAsync ? Promise.resolve : undefined) as Result;
 
                         const { destinationIdentifier, mapOptions } =
                             getOptions(
@@ -585,6 +613,59 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                                 TSource[],
                                 TDestination[]
                             >;
+
+                        if (isAsync) {
+                            return Promise.resolve<{
+                                  sourceArray: TSource[];
+                                  destinationArray: TDestination[];
+                              }>({
+                                sourceArray,
+                                destinationArray,
+                              }).then(async ({ sourceArray, destinationArray }) => {
+                                if (beforeMap) {
+                                  await beforeMap(sourceArray, destinationArray);
+                                }
+
+                                for (
+                                    let i = 0, length = sourceArray.length;
+                                    i < length;
+                                    i++
+                                ) {
+                                    let sourceObject = sourceArray[i];
+
+                                    sourceObject = await strategy.preMap(
+                                        sourceObject,
+                                        mapping
+                                    );
+
+                                    await mapMutate(
+                                        mapping,
+                                        sourceObject,
+                                        destinationArray[i] || {},
+                                        {
+                                            extraArgs: extraArgs as MapOptions<
+                                                TSource,
+                                                TDestination
+                                            >['extraArgs'],
+                                        },
+                                        true,
+                                        isAsync
+                                    );
+
+                                    await strategy.postMap(
+                                        sourceObject,
+                                        destinationArray[i],
+                                        mapping
+                                    );
+                                }
+
+                                if (afterMap) {
+                                  await afterMap(sourceArray, destinationArray);
+                                }
+
+                                return undefined;
+                            }) as Result;
+                        }
 
                         if (beforeMap) {
                             beforeMap(sourceArray, destinationArray);
@@ -625,6 +706,8 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                         if (afterMap) {
                             afterMap(sourceArray, destinationArray);
                         }
+
+                        return undefined as Result;
                     };
                 }
 
@@ -641,17 +724,14 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                             | MapOptions<TSource[], TDestination[]>,
                         options?: MapOptions<TSource[], TDestination[]>
                     ) => {
-                        return new Promise((res) => {
-                            receiver['mutateArray'](
-                                sourceArray,
-                                destinationArray,
-                                sourceIdentifier,
-                                destinationIdentifierOrOptions,
-                                options
-                            );
-
-                            setTimeout(res, 0);
-                        });
+                        return receiver['mutateArray'](
+                            sourceArray,
+                            destinationArray,
+                            sourceIdentifier,
+                            destinationIdentifierOrOptions,
+                            options,
+                            true
+                        );
                     };
                 }
 
