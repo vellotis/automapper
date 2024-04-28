@@ -257,7 +257,7 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                                     sourceObject,
                                     <MapOptions<TSource, TDestination>> mapOptions || {},
                                     false, // isMapArray
-                                    isAsync,
+                                    true, // isAsync
                                 );
 
                                 destination = await strategy.postMap(
@@ -385,7 +385,7 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                                             >['extraArgs'],
                                         },
                                         true, // isMapArray
-                                        isAsync,
+                                        true, // isAsync
                                     );
 
                                     destination = await strategy.postMap(
@@ -522,7 +522,7 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                                 destinationObject,
                                 <MapOptions<TSource, TDestination>> mapOptions || {},
                                 false, // isMapArray
-                                isAsync
+                                true // isAsync
                             );
 
                             await strategy.postMap(
@@ -648,8 +648,8 @@ Mapper {} is an empty Object as a Proxy. The following methods are available to 
                                                 TDestination
                                             >['extraArgs'],
                                         },
-                                        true,
-                                        isAsync
+                                        true, // isMapArray
+                                        true, // isAsync
                                     );
 
                                     await strategy.postMap(

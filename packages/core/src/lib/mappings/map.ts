@@ -86,7 +86,7 @@ export function mapMutate<
                 getMemberFn: getMemberMutateFn(destinationObj),
                 options,
                 isMapArray,
-            }, isAsync);
+            }, true);
         }) as Result;
     }
 
