@@ -85,7 +85,6 @@ const sidebars = {
                 'misc/transformer-plugin',
                 'misc/mapped-types',
                 'misc/self-mapping',
-                'misc/fake-async',
             ],
         },
         'nestjs',

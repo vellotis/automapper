@@ -59,12 +59,6 @@ createMap(
 const dto = await mapper.mapAsync(user, User, UserDto);
 ```
 
-:::caution
-
-Simple asynchronous operations should be fine with this approach. However due to [Fake Async](../misc/fake-async), we should **NOT** use AutoMapper for a particular pair of models if those models require some heavy and complex asynchronous operations.
-
-:::
-
 ## What about `postMap`?
 
 When create the `Mapper`, we can customize the `postMap` function on the `MappingStrategy`. The differences between `postMap` and `afterMap` are:
