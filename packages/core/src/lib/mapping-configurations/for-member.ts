@@ -18,15 +18,16 @@ import { isPrimitiveArrayEqual } from '../utils/is-primitive-array-equal';
 export function forMember<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
-    TMemberType = SelectorReturn<TDestination>
+    TMemberType = SelectorReturn<TDestination>,
+    IsAsync extends boolean = false,
 >(
     selector: Selector<TDestination, TMemberType>,
     ...fns: [
         preCondOrMapMemberFn:
             | PreConditionReturn<TSource, TDestination, TMemberType>
-            | MemberMapReturn<TSource, TDestination, TMemberType>
+            | MemberMapReturn<TSource, TDestination, TMemberType, IsAsync>
             | undefined,
-        mapMemberFn?: MemberMapReturn<TSource, TDestination, TMemberType>
+        mapMemberFn?: MemberMapReturn<TSource, TDestination, TMemberType, IsAsync>
     ]
 ): MappingConfiguration<TSource, TDestination> {
     let [preCondOrMapMemberFn, mapMemberFn] = fns;
@@ -37,7 +38,8 @@ export function forMember<
         mapMemberFn = preCondOrMapMemberFn as MemberMapReturn<
             TSource,
             TDestination,
-            TMemberType
+            TMemberType,
+            IsAsync
         >;
         preCondOrMapMemberFn = undefined;
     }
@@ -45,7 +47,7 @@ export function forMember<
     const mappingProperty: MappingProperty<TSource, TDestination> = [
         memberPath,
         [
-            mapMemberFn,
+            mapMemberFn as MemberMapReturn<TSource, TDestination, IsAsync>,
             preCondOrMapMemberFn as PreConditionReturn<
                 TSource,
                 TDestination,

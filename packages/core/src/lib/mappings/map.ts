@@ -1,12 +1,12 @@
 import { getErrorHandler, getMetadataMap } from '../symbols';
 import type {
-    Constructor,
-    Dictionary,
-    MapInitializeReturn,
-    MapOptions,
-    Mapper,
-    Mapping,
-    MetadataIdentifier,
+  Constructor,
+  Dictionary,
+  MapInitializeReturn,
+  MapOptions,
+  Mapper,
+  Mapping, MemberMapReturn,
+  MetadataIdentifier
 } from '../types';
 import { MapFnClassId, MetadataClassId, TransformationType } from '../types';
 import { assertUnmappedProperties } from '../utils/assert-unmapped-properties';
@@ -18,6 +18,7 @@ import { isPrimitiveArrayEqual } from '../utils/is-primitive-array-equal';
 import { isPrimitiveConstructor } from '../utils/is-primitive-constructor';
 import { set, setMutate } from '../utils/set';
 import { mapMember } from './map-member';
+import { isPromise } from '../utils/is-promise';
 
 function setMemberReturnFn<TDestination extends Dictionary<TDestination> = any>(
     destinationMemberPath: string[],
@@ -185,8 +186,8 @@ export function map<
                 }
               }
 
-              _mapInternalLogic({
-                  propsToMap,
+              await Promise.all(_mapInternalLogic<TSource, TDestination, true>({
+                  propsToMap: (propsToMap as Mapping<TSource, TDestination, true>[2]),
                   destination,
                   mapper,
                   setMemberFn,
@@ -198,7 +199,8 @@ export function map<
                   errorHandler,
                   extraArgs,
                   metadataMap,
-              });
+                  isAsync
+              }));
 
               if (!isMapArray) {
                   const afterMap = mapAfterCallback ?? mappingAfterCallback;
@@ -265,8 +267,9 @@ export function map<
 }
 
 function _mapInternalLogic<
-TSource extends Dictionary<TSource>,
-TDestination extends Dictionary<TDestination>
+    TSource extends Dictionary<TSource>,
+    TDestination extends Dictionary<TDestination>,
+    IsAsync extends boolean = false
 >({
   propsToMap,
   destination,
@@ -280,8 +283,9 @@ TDestination extends Dictionary<TDestination>
   errorHandler,
   extraArgs,
   metadataMap,
+  isAsync,
 }: {
-  propsToMap: Mapping<TSource, TDestination>[2],
+  propsToMap: Mapping<TSource, TDestination, IsAsync>[2],
   destination: TDestination,
   mapper: Mapper,
   setMemberFn: MapParameter<TSource, TDestination>['setMemberFn'],
@@ -293,7 +297,14 @@ TDestination extends Dictionary<TDestination>
   errorHandler: ReturnType<typeof getErrorHandler>,
   extraArgs: MapOptions<TSource, TDestination>['extraArgs'],
   metadataMap: ReturnType<typeof getMetadataMap>,
-}) {
+  isAsync?: IsAsync
+}): (IsAsync extends true ? any[] : undefined) {
+  const resolvables: any[] = [];
+  const pushResolvable = (resolvable: any) => {
+      if (isAsync !== true && isPromise(resolvable)) throw new Error('TODO');
+      if (isAsync) resolvables.push(resolvable);
+  }
+
   for (let i = 0, length = propsToMap.length; i < length; i++) {
     // destructure mapping property
     const [
@@ -330,9 +341,17 @@ TDestination extends Dictionary<TDestination>
     }
 
     // Set up a shortcut function to set destinationMemberPath on destination with value as argument
-    const setMember = (valFn: () => unknown) => {
+    const setMember = (valFn: () => unknown): any => {
         try {
-            return setMemberFn(destinationMemberPath, destination)(valFn());
+            const value = valFn();
+            if (isAsync) {
+                return Promise.resolve(value).then((value) => {
+                    return setMemberFn(destinationMemberPath, destination)(value)
+                });
+            } else {
+                if (isPromise(value)) throw new Error('TODO');
+                return setMemberFn(destinationMemberPath, destination)(value);
+            }
         } catch (originalError) {
             const errorMessage = `
 Error at "${destinationMemberPath}" on ${
@@ -354,7 +373,7 @@ Original error: ${originalError}`;
         transformationPreConditionPredicate &&
         !transformationPreConditionPredicate(sourceObject)
     ) {
-        setMember(() => transformationPreConditionDefaultValue);
+        pushResolvable(setMember(() => transformationPreConditionDefaultValue));
         continue;
     }
 
@@ -398,7 +417,7 @@ Original error: ${originalError}`;
             hasSameIdentifier ||
             isTypedConverted
         ) {
-            setMember(() => mapInitializedValue);
+            pushResolvable(setMember(() => mapInitializedValue));
             continue;
         }
 
@@ -412,7 +431,7 @@ Original error: ${originalError}`;
                 Object.prototype.toString.call(first).slice(8, -1) ===
                     'File'
             ) {
-                setMember(() => mapInitializedValue.slice());
+                pushResolvable(setMember(() => mapInitializedValue.slice()));
                 continue;
             }
 
@@ -428,7 +447,7 @@ Original error: ${originalError}`;
                 continue;
             }
 
-            setMember(() =>
+            pushResolvable(setMember(() =>
                 mapInitializedValue.map((each) =>
                     mapReturn(
                         getMapping(
@@ -440,7 +459,7 @@ Original error: ${originalError}`;
                         { extraArgs }
                     )
                 )
-            );
+            ));
             continue;
         }
 
@@ -466,23 +485,23 @@ Original error: ${originalError}`;
                 continue;
             }
 
-            setMember(() =>
+            pushResolvable(setMember(() =>
                 map({
                     mapping: nestedMapping,
                     sourceObject: mapInitializedValue as TSource,
                     options: { extraArgs },
                     setMemberFn: setMemberReturnFn,
-                })
-            );
+                }, isAsync)
+            ));
             continue;
         }
 
         // if is primitive
-        setMember(() => mapInitializedValue);
+        pushResolvable(setMember(() => mapInitializedValue));
         continue;
     }
 
-    setMember(() =>
+    pushResolvable(setMember(() =>
         mapMember(
             transformationMapFn,
             sourceObject,
@@ -491,8 +510,11 @@ Original error: ${originalError}`;
             extraArguments,
             mapper,
             sourceMemberIdentifier,
-            destinationMemberIdentifier
+            destinationMemberIdentifier,
+            isAsync,
         )
-    );
+    ));
   }
+
+  return (isAsync === true ? resolvables : undefined) as IsAsync extends true ? any[] : undefined;
 }

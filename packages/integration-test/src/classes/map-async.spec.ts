@@ -1,14 +1,16 @@
 import { classes } from '@automapper/classes';
 import {
-    afterMap,
-    beforeMap,
-    createMap,
-    createMapper,
-    forMember,
-    ignore,
+  addProfile,
+  afterMap,
+  beforeMap,
+  createMap,
+  createMapper,
+  forMember, fromValue,
+  ignore, mapDefer
 } from '@automapper/core';
 import { SimpleUserDto } from './dtos/simple-user.dto';
 import { SimpleUser } from './models/simple-user';
+import { getUser } from './utils/get-user';
 
 async function asyncResolve<T>(value: T, delayMs = 1000): Promise<T> {
     return new Promise((resolve) => {
@@ -74,5 +76,24 @@ describe('Map Async Classes', () => {
       expect(dtos[0].firstName).toEqual(user.firstName);
       expect(dtos[0].lastName).toEqual(user.lastName);
       expect(dtos[0].fullName).toEqual(undefined); // afterMap is not called
+  });
+
+
+
+  it('should resolve defer if Promise returned from the mapping', async () => {
+      class Source {}
+      class Destination {
+          value!: string;
+      }
+      const mockValue = 'mockValue';
+      addProfile(mapper, function failingProfile(mapper) {
+          createMap(mapper, Source, Destination,
+              forMember((d) => d.value, mapDefer(() => Promise.resolve(fromValue(mockValue)))),
+          )
+      });
+
+      const destination = await mapper.mapAsync({}, Source, Destination);
+
+      expect(destination.value).toEqual(mockValue);
   });
 });

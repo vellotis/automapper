@@ -1,26 +1,20 @@
-import automapperTransformerPlugin, {
-    before,
-} from '@automapper/classes/transformer-plugin';
-import type { CompilerOptions } from 'typescript/lib/tsserverlibrary';
+import automapperTransformerPlugin, { before } from '@automapper/classes/transformer-plugin';
 import {
-    createProgram,
-    ModuleKind,
-    ScriptTarget,
-    transpileModule,
+  CompilerOptions,
+  createProgram,
+  ModuleKind,
+  NewLineKind,
+  ScriptTarget,
+  transpileModule
 } from 'typescript/lib/tsserverlibrary';
 import {
-    compiledCreateSkillRequestDto,
-    compiledSkillEntity,
-    createSkillRequestDtoText,
-    skillEntityText,
+  compiledCreateSkillRequestDto,
+  compiledSkillEntity,
+  createSkillRequestDtoText,
+  skillEntityText
 } from './issues/486/models';
 
-import {
-    userModelText,
-    userModelTextStrict,
-    userModelTranspiledText,
-    userModelTranspiledTextESM,
-} from './model';
+import { userModelText, userModelTextStrict, userModelTranspiledText, userModelTranspiledTextESM } from './model';
 
 describe('Classes - Transformer Plugin', () => {
     describe('named before import', () => {
@@ -29,6 +23,7 @@ describe('Classes - Transformer Plugin', () => {
                 module: ModuleKind.CommonJS,
                 target: ScriptTarget.ESNext,
                 noEmitHelpers: true,
+                newLine: NewLineKind.LineFeed,
             };
 
             const fileName = 'user.model.ts';
@@ -52,6 +47,7 @@ describe('Classes - Transformer Plugin', () => {
                 module: ModuleKind.CommonJS,
                 target: ScriptTarget.ESNext,
                 noEmitHelpers: true,
+                newLine: NewLineKind.LineFeed,
             };
 
             const fileName = 'user.model.ts';
@@ -76,6 +72,7 @@ describe('Classes - Transformer Plugin', () => {
                 module: ModuleKind.ES2015,
                 target: ScriptTarget.ESNext,
                 noEmitHelpers: true,
+                newLine: NewLineKind.LineFeed,
             };
 
             const fileName = 'user.model.ts';
@@ -101,6 +98,7 @@ describe('Classes - Transformer Plugin', () => {
                 target: ScriptTarget.ESNext,
                 noEmitHelpers: true,
                 strict: true,
+                newLine: NewLineKind.LineFeed,
             };
 
             const fileName = 'user.model.ts';
@@ -126,6 +124,7 @@ describe('Classes - Transformer Plugin', () => {
                 target: ScriptTarget.ESNext,
                 noEmitHelpers: true,
                 strict: true,
+                newLine: NewLineKind.LineFeed,
             };
 
             const fileName = 'user.model.ts';
@@ -151,6 +150,7 @@ describe('Classes - Transformer Plugin', () => {
                 module: ModuleKind.CommonJS,
                 target: ScriptTarget.ESNext,
                 noEmitHelpers: true,
+                newLine: NewLineKind.LineFeed,
             };
 
             const createSkillFileName = 'create-skill.dto.ts';

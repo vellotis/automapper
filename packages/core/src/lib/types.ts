@@ -69,7 +69,9 @@ export type Selector<
     TReturnType = unknown
 > = (obj: TObject) => TReturnType;
 
-export type SelectorReturn<TObject extends Dictionary<TObject>> = ReturnType<
+export type SelectorReturn<
+    TObject extends Dictionary<TObject>,
+> = ReturnType<
     Selector<TObject>
 >;
 
@@ -328,10 +330,11 @@ export type MemberMapReturnNoDefer<
 export type MemberMapReturn<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
-    TSelectorReturn = SelectorReturn<TDestination>
+    TSelectorReturn = SelectorReturn<TDestination>,
+    IsAsync extends boolean = false,
 > =
     | MemberMapReturnNoDefer<TSource, TDestination, TSelectorReturn>
-    | MapDeferReturn<TSource, TDestination, TSelectorReturn>;
+    | MapDeferReturn<TSource, TDestination, TSelectorReturn, IsAsync>;
 
 export type PreConditionReturn<
     TSource extends Dictionary<TSource>,
@@ -345,20 +348,24 @@ export type PreConditionReturn<
 export interface DeferFunction<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
-    TSelectorReturn = SelectorReturn<TDestination>
-> {
-    (source: TSource):
+    TSelectorReturn = SelectorReturn<TDestination>,
+    IsAsync extends boolean = TSelectorReturn extends Promise<any> ? true : false,
+    TReturn =
         | MemberMapReturnNoDefer<TSource, TDestination, TSelectorReturn>
-        | MapWithReturn<TSource, TDestination, TSelectorReturn>;
+        | MapWithReturn<TSource, TDestination, TSelectorReturn>
+> {
+    (source: TSource, isAsync?: IsAsync):
+        IsAsync extends true ? Promise<TReturn> : Promise<TReturn> | TReturn;
 }
 
 export type MapDeferReturn<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
-    TSelectorReturn = SelectorReturn<TDestination>
+    TSelectorReturn = SelectorReturn<TDestination>,
+    IsAsync extends boolean = TSelectorReturn extends Promise<any> ? true : false
 > = [
     TransformationType.MapDefer,
-    DeferFunction<TSource, TDestination, TSelectorReturn>
+    DeferFunction<TSource, TDestination, TSelectorReturn, IsAsync>
 ];
 
 export type MapFromReturn<
@@ -455,9 +462,10 @@ export const enum MappingTransformationClassId {
 export type MappingTransformation<
     TSource extends Dictionary<TSource> = any,
     TDestination extends Dictionary<TDestination> = any,
-    TSelectorReturn = SelectorReturn<TDestination>
+    TSelectorReturn = SelectorReturn<TDestination>,
+    IsAsync extends boolean = false
 > = [
-    memberMapFn: MemberMapReturn<TSource, TDestination, TSelectorReturn>,
+    memberMapFn: MemberMapReturn<TSource, TDestination, TSelectorReturn, IsAsync>,
     preCond?: PreConditionReturn<TSource, TDestination, TSelectorReturn>
 ];
 
@@ -468,13 +476,15 @@ export const enum MappingPropertyClassId {
 export type MappingProperty<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
-    TSelectorReturn = SelectorReturn<TDestination>
+    TSelectorReturn = SelectorReturn<TDestination>,
+    IsAsync extends boolean = false
 > = [
     target: string[],
     transformation: MappingTransformation<
         TSource,
         TDestination,
-        TSelectorReturn
+        TSelectorReturn,
+        IsAsync
     >
 ];
 export const enum MappingPropertiesClassId {
@@ -512,7 +522,8 @@ export const enum MappingClassId {
 
 export type Mapping<
     TSource extends Dictionary<TSource> = any,
-    TDestination extends Dictionary<TDestination> = any
+    TDestination extends Dictionary<TDestination> = any,
+    IsAsync extends boolean = false
 > = [
     identifiers: [
         source: MetadataIdentifier<TSource>,
@@ -525,7 +536,8 @@ export type Mapping<
             mappingProperty: MappingProperty<
                 TSource,
                 TDestination,
-                SelectorReturn<TDestination>
+                SelectorReturn<TDestination>,
+                IsAsync
             >,
             nestedMappingPair?: [
                 destination: MetadataIdentifier | Primitive | Date,
@@ -539,7 +551,8 @@ export type Mapping<
             mappingProperty: MappingProperty<
                 TSource,
                 TDestination,
-                SelectorReturn<TDestination>
+                SelectorReturn<TDestination>,
+                IsAsync
             >,
             nestedMappingPair?: [
                 destination: MetadataIdentifier | Primitive | Date,

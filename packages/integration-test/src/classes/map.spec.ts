@@ -1,5 +1,13 @@
 import { classes } from '@automapper/classes';
-import { addProfile, CamelCaseNamingConvention, createMapper } from '@automapper/core';
+import {
+  addProfile,
+  CamelCaseNamingConvention,
+  createMap,
+  createMapper,
+  forMember,
+  ignore,
+  mapDefer,
+} from '@automapper/core';
 import { UserDto } from './dtos/user.dto';
 import { User } from './models/user';
 import { addressProfile } from './profiles/address.profile';
@@ -33,9 +41,27 @@ describe('Map Classes', () => {
         expect(dtos).toEqual([]);
     });
 
-    it('should throw error if mapped without the mapping', () => {
+    it('should throw an error if mapped without the mapping', () => {
         const user = getUser();
-        expect(() => mapper.map(user, User, UserDto)).toThrow();
+        expect(() => mapper.map(user, User, UserDto)).toThrow('Mapping is not found for User and UserDto');
+    });
+
+    it('should throw an error if Promise returned from the mapping', () => {
+        class Source {}
+        class Destination {
+          value!: string;
+        }
+        addProfile(mapper, function failingProfile(mapper) {
+          createMap(mapper, Source, Destination,
+              forMember((d) => d.value, mapDefer(() => Promise.resolve(ignore()))),
+          )
+        });
+
+        const mapOperation = () => mapper.map({}, Source, Destination);
+
+        expect(mapOperation).toThrow(
+            'Use `Mapper::mapAsync` instead of `Mapper::map` as the mapping contains async operations'
+        );
     });
 
     it('should not freeze source', () => {
