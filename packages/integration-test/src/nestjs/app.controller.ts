@@ -31,6 +31,12 @@ export class AppController {
         return this.appService.getRawUser();
     }
 
+    @Get('raw-sync')
+    @UseInterceptors(MapInterceptor(User, UserDto, { sync: true }))
+    getRawUserSync() {
+        return this.appService.getRawUser();
+    }
+
     @Get('raw-array')
     @UseInterceptors(MapInterceptor(User, UserDto, { isArray: true }))
     getRawUserArray() {
@@ -44,6 +50,11 @@ export class AppController {
 
     @Post('from-body')
     getUserFromBody(@Body(MapPipe(User, UserDto)) dto: UserDto) {
+        return dto;
+    }
+
+    @Post('from-body-sync')
+    getUserFromBodySync(@Body(MapPipe(User, UserDto, { sync: true })) dto: UserDto) {
         return dto;
     }
 

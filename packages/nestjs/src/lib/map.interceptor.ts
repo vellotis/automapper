@@ -26,7 +26,7 @@ export const MapInterceptor: <
 >(
     from: ModelIdentifier<TSource>,
     to: ModelIdentifier<TDestination>,
-    options?: { isArray?: boolean; mapperName?: string } & MapOptions<
+    options?: { isArray?: boolean; mapperName?: string; sync?: boolean } & MapOptions<
         TSource,
         TDestination
     >
@@ -38,12 +38,12 @@ function createMapInterceptor<
 >(
     from: ModelIdentifier<TSource>,
     to: ModelIdentifier<TDestination>,
-    options?: { isArray?: boolean; mapperName?: string } & MapOptions<
+    options?: { isArray?: boolean; mapperName?: string; sync?: boolean } & MapOptions<
         TSource,
         TDestination
     >
 ): new (...args: unknown[]) => NestInterceptor {
-    const { isArray, mapperName, transformedMapOptions } =
+    const { isArray, mapperName, isAsync, transformedMapOptions } =
         getTransformOptions(options);
 
     class MixinMapInterceptor implements NestInterceptor {
@@ -73,11 +73,12 @@ function createMapInterceptor<
                                 transformedMapOptions as unknown as MapOptions<
                                     TSource[],
                                     TDestination[]
-                                >
+                                >,
+                                isAsync
                             );
                         }
 
-                        return this.mapper?.map(
+                        return (isAsync ? this.mapper?.mapAsync : this.mapper?.map)?.(
                             response,
                             from,
                             to,

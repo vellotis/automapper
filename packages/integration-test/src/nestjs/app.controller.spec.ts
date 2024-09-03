@@ -59,6 +59,15 @@ describe(AppController.name, () => {
             .expect(JSON.parse(JSON.stringify(getUserDto())));
     });
 
+    it('GET /raw-sync', () => {
+        mockedAppService.getRawUser.mockReturnValueOnce(getUser());
+
+        return request(app.getHttpServer())
+            .get('/raw-sync')
+            .expect(200)
+            .expect(JSON.parse(JSON.stringify(getUserDto())));
+    });
+
     it('GET /raw-array', () => {
         mockedAppService.getRawUser.mockReturnValueOnce(getUser());
 
@@ -79,6 +88,15 @@ describe(AppController.name, () => {
             .send(getUser())
             .expect(201)
             .expect(JSON.parse(JSON.stringify(getUserDto())));
+    });
+
+    it('POST /from-body-sync', () => {
+      return request(app.getHttpServer())
+        .post('/from-body-sync')
+        .set('Content-Type', 'application/json')
+        .send(getUser())
+        .expect(201)
+        .expect(JSON.parse(JSON.stringify(getUserDto())));
     });
 
     it('POST /from-body-data', () => {
