@@ -4,15 +4,17 @@ import {
   Dictionary,
   FromValueReturn,
   MapDeferReturn,
+  MapFnClassId,
   MapFromReturn,
   Mapper,
   MapWithArgumentsReturn,
   MapWithReturn,
   MemberMapReturn,
   MetadataIdentifier,
-  Primitive, SelectorReturn
+  Primitive,
+  SelectorReturn,
+  TransformationType
 } from '../types';
-import { MapFnClassId, TransformationType } from '../types';
 import { isDateConstructor } from '../utils/is-date-constructor';
 import { isPrimitiveConstructor } from '../utils/is-primitive-constructor';
 import { asyncAware } from '../utils/async-aware';

@@ -4,8 +4,9 @@ import {
     MapWithReturn,
     ModelIdentifier,
     SelectorReturn,
+    TransformationType,
+    ValueSelector
 } from '../types';
-import { TransformationType, ValueSelector } from '../types';
 import { asyncAware } from '../utils/async-aware';
 
 type Constructor<TModel> = new (...args: unknown[]) => TModel;
