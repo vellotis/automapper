@@ -69,6 +69,11 @@ export type Selector<
     TReturnType = unknown
 > = (obj: TObject) => TReturnType;
 
+export type SelectorAsyncAware<
+  TObject extends Dictionary<TObject> = any,
+  TReturnType = unknown
+> = (obj: TObject, isAsync: boolean) => TReturnType;
+
 export type SelectorReturn<
     TObject extends Dictionary<TObject>,
 > = ReturnType<
@@ -80,6 +85,12 @@ export type ValueSelector<
     TDestination extends Dictionary<TDestination> = any,
     TValueReturn = SelectorReturn<TDestination>
 > = (source: TSource) => TValueReturn;
+
+export type ValueSelectorAsyncable<
+  TSource extends Dictionary<TSource> = any,
+  TDestination extends Dictionary<TDestination> = any,
+  TValueReturn = SelectorReturn<TDestination>
+> = (source: TSource) => TValueReturn | Promise<TValueReturn>;
 
 export interface Resolver<
     TSource extends Dictionary<TSource> = any,
@@ -93,7 +104,7 @@ export interface Converter<
     TSource extends Dictionary<TSource> = any,
     TConvertDestination = any
 > {
-    convert(source: TSource): TConvertDestination;
+    convert(source: TSource): TConvertDestination | Promise<TConvertDestination>;
 }
 
 export type MapCallback<
@@ -330,11 +341,10 @@ export type MemberMapReturnNoDefer<
 export type MemberMapReturn<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
-    TSelectorReturn = SelectorReturn<TDestination>,
-    IsAsync extends boolean = false,
+    TSelectorReturn = SelectorReturn<TDestination>
 > =
     | MemberMapReturnNoDefer<TSource, TDestination, TSelectorReturn>
-    | MapDeferReturn<TSource, TDestination, TSelectorReturn, IsAsync>;
+    | MapDeferReturn<TSource, TDestination, TSelectorReturn>;
 
 export type PreConditionReturn<
     TSource extends Dictionary<TSource>,
@@ -342,30 +352,27 @@ export type PreConditionReturn<
     TSelectorReturn = SelectorReturn<TDestination>
 > = [
     preConditionPredicate: ConditionPredicate<TSource>,
-    defaultValue?: TSelectorReturn
+    defaultValue?: TSelectorReturn | Promise<TSelectorReturn>
 ];
 
 export interface DeferFunction<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
     TSelectorReturn = SelectorReturn<TDestination>,
-    IsAsync extends boolean = TSelectorReturn extends Promise<any> ? true : false,
     TReturn =
         | MemberMapReturnNoDefer<TSource, TDestination, TSelectorReturn>
         | MapWithReturn<TSource, TDestination, TSelectorReturn>
 > {
-    (source: TSource, isAsync?: IsAsync):
-        IsAsync extends true ? Promise<TReturn> : Promise<TReturn> | TReturn;
+    (source: TSource): TReturn | Promise<TReturn>;
 }
 
 export type MapDeferReturn<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
     TSelectorReturn = SelectorReturn<TDestination>,
-    IsAsync extends boolean = TSelectorReturn extends Promise<any> ? true : false
 > = [
     TransformationType.MapDefer,
-    DeferFunction<TSource, TDestination, TSelectorReturn, IsAsync>
+    DeferFunction<TSource, TDestination, TSelectorReturn>
 ];
 
 export type MapFromReturn<
@@ -383,12 +390,15 @@ export type MapWithReturn<
     (
         sourceObj: TSource,
         mapper: Mapper,
-        options?: MapOptions<TSource, TDestination>
-    ) => TSelectorReturn | undefined | null
+        options?: MapOptions<TSource, TDestination>,
+        isAsync?: boolean
+    ) => TSelectorReturn | Promise<TSelectorReturn> | undefined | null
 ];
 
-export interface ConditionPredicate<TSource extends Dictionary<TSource>> {
-    (source: TSource): boolean;
+export interface ConditionPredicate<
+  TSource extends Dictionary<TSource>
+> {
+    (source: TSource): boolean | Promise<boolean>;
 }
 
 export type ConditionReturn<
@@ -397,20 +407,20 @@ export type ConditionReturn<
     TSelectorReturn = SelectorReturn<TDestination>
 > = [
     TransformationType.Condition,
-    (source: TSource, sourceMemberPath: string[]) => TSelectorReturn
+    (source: TSource, sourceMemberPath: string[], isAsync: boolean) => TSelectorReturn | Promise<TSelectorReturn>,
 ];
 
 export type FromValueReturn<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
     TSelectorReturn = SelectorReturn<TDestination>
-> = [TransformationType.FromValue, () => TSelectorReturn];
+> = [TransformationType.FromValue, () => TSelectorReturn | Promise<TSelectorReturn>];
 
 export type ConvertUsingReturn<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
     TSelectorReturn = SelectorReturn<TDestination>
-> = [TransformationType.ConvertUsing, Selector<TSource, TSelectorReturn>];
+> = [TransformationType.ConvertUsing, SelectorAsyncAware<TSource, TSelectorReturn | Promise<TSelectorReturn>>];
 
 export type NullSubstitutionReturn<
     TSource extends Dictionary<TSource>,
@@ -418,7 +428,7 @@ export type NullSubstitutionReturn<
     TSelectorReturn = SelectorReturn<TDestination>
 > = [
     TransformationType.NullSubstitution,
-    (source: TSource, sourceMemberPath: string[]) => TSelectorReturn
+    (source: TSource, sourceMemberPath: string[]) => TSelectorReturn | Promise<TSelectorReturn>
 ];
 
 export type UndefinedSubstitutionReturn<
@@ -427,7 +437,7 @@ export type UndefinedSubstitutionReturn<
     TSelectorReturn = SelectorReturn<TDestination>
 > = [
     TransformationType.UndefinedSubstitution,
-    (source: TSource, sourceMemberPath: string[]) => TSelectorReturn
+    (source: TSource, sourceMemberPath: string[]) => TSelectorReturn | Promise<TSelectorReturn>
 ];
 
 export type IgnoreReturn<
@@ -441,7 +451,7 @@ export type MapWithArgumentsReturn<
     TSelectorReturn = SelectorReturn<TDestination>
 > = [
     TransformationType.MapWithArguments,
-    (source: TSource, extraArguments: Record<string, any>) => TSelectorReturn
+    (source: TSource, extraArguments: Record<string, any>) => TSelectorReturn | Promise<TSelectorReturn>
 ];
 
 export type MapInitializeReturn<
@@ -462,10 +472,9 @@ export const enum MappingTransformationClassId {
 export type MappingTransformation<
     TSource extends Dictionary<TSource> = any,
     TDestination extends Dictionary<TDestination> = any,
-    TSelectorReturn = SelectorReturn<TDestination>,
-    IsAsync extends boolean = false
+    TSelectorReturn = SelectorReturn<TDestination>
 > = [
-    memberMapFn: MemberMapReturn<TSource, TDestination, TSelectorReturn, IsAsync>,
+    memberMapFn: MemberMapReturn<TSource, TDestination, TSelectorReturn>,
     preCond?: PreConditionReturn<TSource, TDestination, TSelectorReturn>
 ];
 
@@ -476,15 +485,13 @@ export const enum MappingPropertyClassId {
 export type MappingProperty<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
-    TSelectorReturn = SelectorReturn<TDestination>,
-    IsAsync extends boolean = false
+    TSelectorReturn = SelectorReturn<TDestination>
 > = [
     target: string[],
     transformation: MappingTransformation<
         TSource,
         TDestination,
-        TSelectorReturn,
-        IsAsync
+        TSelectorReturn
     >
 ];
 export const enum MappingPropertiesClassId {
@@ -522,8 +529,7 @@ export const enum MappingClassId {
 
 export type Mapping<
     TSource extends Dictionary<TSource> = any,
-    TDestination extends Dictionary<TDestination> = any,
-    IsAsync extends boolean = false
+    TDestination extends Dictionary<TDestination> = any
 > = [
     identifiers: [
         source: MetadataIdentifier<TSource>,
@@ -536,8 +542,7 @@ export type Mapping<
             mappingProperty: MappingProperty<
                 TSource,
                 TDestination,
-                SelectorReturn<TDestination>,
-                IsAsync
+                SelectorReturn<TDestination>
             >,
             nestedMappingPair?: [
                 destination: MetadataIdentifier | Primitive | Date,
@@ -551,8 +556,7 @@ export type Mapping<
             mappingProperty: MappingProperty<
                 TSource,
                 TDestination,
-                SelectorReturn<TDestination>,
-                IsAsync
+                SelectorReturn<TDestination>
             >,
             nestedMappingPair?: [
                 destination: MetadataIdentifier | Primitive | Date,
@@ -611,7 +615,7 @@ export type DestinationConstructor<
 > = (
     sourceObject: TSource,
     destinationIdentifier: MetadataIdentifier<TDestination>
-) => TDestination;
+) => TDestination | Promise<TDestination>;
 
 export type MappingProfile = (mapper: Mapper) => void;
 

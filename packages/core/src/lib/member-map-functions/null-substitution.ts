@@ -11,7 +11,7 @@ export function nullSubstitution<
     TDestination extends Dictionary<TDestination>,
     TSelectorReturn = SelectorReturn<TDestination>
 >(
-    substitution: TSelectorReturn
+    substitution: TSelectorReturn | Promise<TSelectorReturn>
 ): NullSubstitutionReturn<TSource, TDestination, TSelectorReturn> {
     return [
         TransformationType.NullSubstitution,

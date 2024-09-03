@@ -25,9 +25,9 @@ export function forMember<
     ...fns: [
         preCondOrMapMemberFn:
             | PreConditionReturn<TSource, TDestination, TMemberType>
-            | MemberMapReturn<TSource, TDestination, TMemberType, IsAsync>
+            | MemberMapReturn<TSource, TDestination, TMemberType>
             | undefined,
-        mapMemberFn?: MemberMapReturn<TSource, TDestination, TMemberType, IsAsync>
+        mapMemberFn?: MemberMapReturn<TSource, TDestination, TMemberType>
     ]
 ): MappingConfiguration<TSource, TDestination> {
     let [preCondOrMapMemberFn, mapMemberFn] = fns;
@@ -38,8 +38,7 @@ export function forMember<
         mapMemberFn = preCondOrMapMemberFn as MemberMapReturn<
             TSource,
             TDestination,
-            TMemberType,
-            IsAsync
+            TMemberType
         >;
         preCondOrMapMemberFn = undefined;
     }

@@ -15,14 +15,14 @@ import {
 import { MapFnClassId, TransformationType } from '../types';
 import { isDateConstructor } from '../utils/is-date-constructor';
 import { isPrimitiveConstructor } from '../utils/is-primitive-constructor';
-import { isPromise } from '../utils/is-promise';
+import { asyncAware } from '../utils/async-aware';
 
 export function mapMember<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
     IsAsync extends boolean = false,
 >(
-    transformationMapFn: MemberMapReturn<TSource, TDestination, unknown, IsAsync>,
+    transformationMapFn: MemberMapReturn<TSource, TDestination>,
     sourceObject: TSource,
     destinationObject: TDestination,
     destinationMemberPath: string[],
@@ -60,7 +60,8 @@ export function mapMember<
             )(
                 sourceObject,
                 mapper,
-                extraArgs ? { extraArgs: () => extraArgs } : undefined
+                extraArgs ? { extraArgs: () => extraArgs } : undefined,
+                isAsync
             );
             break;
         case TransformationType.ConvertUsing:
@@ -69,28 +70,33 @@ export function mapMember<
                     TSource,
                     TDestination
                 >[MapFnClassId.fn]
-            )(sourceObject);
+            )(sourceObject, isAsync as IsAsync);
             break;
         case TransformationType.Condition:
         case TransformationType.NullSubstitution:
         case TransformationType.UndefinedSubstitution:
-            value = (
-                mapFn as ConditionReturn<TSource, TDestination>[MapFnClassId.fn]
-            )(sourceObject, destinationMemberPath);
-
-            if (shouldRunImplicitMap && value != null) {
-                value = Array.isArray(value)
-                    ? mapper.mapArray(
-                          value,
-                          sourceMemberIdentifier as MetadataIdentifier,
-                          destinationMemberIdentifier as MetadataIdentifier
-                      )
-                    : mapper.map(
-                          value,
-                          sourceMemberIdentifier as MetadataIdentifier,
-                          destinationMemberIdentifier as MetadataIdentifier
-                      );
-            }
+            value = asyncAware(
+                () => (
+                    mapFn as ConditionReturn<TSource, TDestination>[MapFnClassId.fn]
+                )(sourceObject, destinationMemberPath, isAsync as boolean),
+                (value) => {
+                    if (shouldRunImplicitMap && value != null) {
+                        return Array.isArray(value)
+                            ? mapper.mapArray(
+                              value,
+                              sourceMemberIdentifier as MetadataIdentifier,
+                              destinationMemberIdentifier as MetadataIdentifier
+                            )
+                            : mapper.map(
+                              value,
+                              sourceMemberIdentifier as MetadataIdentifier,
+                              destinationMemberIdentifier as MetadataIdentifier
+                            );
+                    }
+                    return value;
+                },
+                isAsync
+            );
 
             break;
         case TransformationType.MapWithArguments:
@@ -102,44 +108,26 @@ export function mapMember<
             )(sourceObject, extraArgs || {});
             break;
         case TransformationType.MapDefer: {
-          const deferFunctionResult = (
+          value = asyncAware(() => (
             mapFn as MapDeferReturn<
               TSource,
               TDestination,
-              SelectorReturn<TDestination>,
-              IsAsync
+              SelectorReturn<TDestination>
             >[MapFnClassId.fn]
-          )(sourceObject, isAsync) as
-            | MemberMapReturn<TSource, TDestination, IsAsync>
-            | Promise<MemberMapReturn<TSource, TDestination, IsAsync>>;
+          )(sourceObject), (deferFunction) => {
+            return mapMember(
+              deferFunction,
+              sourceObject,
+              destinationObject,
+              destinationMemberPath,
+              extraArgs,
+              mapper,
+              sourceMemberIdentifier,
+              destinationMemberIdentifier,
+              isAsync
+            );
+          }, isAsync);
 
-          if (isPromise(deferFunctionResult)) {
-            if (isAsync !== true) throw new Error('Use `Mapper::mapAsync` instead of `Mapper::map` as the mapping contains async operations');
-            value = (deferFunctionResult as Promise<MemberMapReturn<TSource, TDestination, IsAsync>>).then((deferFunctionResult) => {
-              return mapMember(
-                deferFunctionResult,
-                sourceObject,
-                destinationObject,
-                destinationMemberPath,
-                extraArgs,
-                mapper,
-                sourceMemberIdentifier,
-                destinationMemberIdentifier
-              );
-            });
-            break;
-          }
-
-          value = mapMember(
-            deferFunctionResult as MemberMapReturn<TSource, TDestination, IsAsync>,
-            sourceObject,
-            destinationObject,
-            destinationMemberPath,
-            extraArgs,
-            mapper,
-            sourceMemberIdentifier,
-            destinationMemberIdentifier
-          );
           break;
         }
     }

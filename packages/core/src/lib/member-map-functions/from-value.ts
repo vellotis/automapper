@@ -6,7 +6,7 @@ export function fromValue<
     TDestination extends Dictionary<TDestination>,
     TSelectorReturn = SelectorReturn<TDestination>
 >(
-    rawValue: TSelectorReturn
+    rawValue: TSelectorReturn | Promise<TSelectorReturn>
 ): FromValueReturn<TSource, TDestination, TSelectorReturn> {
     return [TransformationType.FromValue, () => rawValue];
 }

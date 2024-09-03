@@ -1,11 +1,12 @@
-import type {
-    Dictionary,
-    MapOptions,
-    MapWithReturn,
-    ModelIdentifier,
-    SelectorReturn,
+import {
+  Dictionary,
+  MapOptions,
+  MapWithReturn,
+  ModelIdentifier,
+  SelectorReturn, ValueSelectorAsyncable
 } from '../types';
 import { TransformationType, ValueSelector } from '../types';
+import { asyncAware } from '../utils/async-aware';
 
 type Constructor<TModel> = new (...args: unknown[]) => TModel;
 
@@ -27,24 +28,24 @@ export function mapWith<
 ): MapWithReturn<TSource, TDestination, TSelectorReturn> {
     return [
         TransformationType.MapWith,
-        (source, mapper, options) => {
-            const sourceValue = withSourceValue(source);
+        (source, mapper, options, isAsync) => {
+            return asyncAware(() => withSourceValue(source) as TWithSource, (nestedObject) => {
+                if (Array.isArray(nestedObject)) {
+                    return (isAsync ? mapper.mapArrayAsync<TWithSource, TDestination> : mapper.mapArray<TWithSource, TDestination>)(
+                        nestedObject,
+                        withSource,
+                        withDestination,
+                        options as unknown as MapOptions<TWithSource[], TDestination[]>
+                    ) as TSelectorReturn;
+                }
 
-            if (Array.isArray(sourceValue)) {
-                return mapper.mapArray(
-                    sourceValue,
+                return (isAsync ? mapper.mapAsync<TWithSource, TDestination> : mapper.map<TWithSource, TDestination>)(
+                    nestedObject,
                     withSource,
                     withDestination,
-                    options as unknown as MapOptions<TSource[], TDestination[]>
-                ) as unknown as TSelectorReturn;
-            }
-
-            return mapper.map(
-                sourceValue,
-                withSource,
-                withDestination,
-                options
-            ) as unknown as TSelectorReturn;
+                    options as unknown as MapOptions<TWithSource, TDestination>
+                ) as TSelectorReturn;
+            }, isAsync);
         },
     ];
 }

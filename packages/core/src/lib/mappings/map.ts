@@ -19,6 +19,7 @@ import { isPrimitiveConstructor } from '../utils/is-primitive-constructor';
 import { set, setMutate } from '../utils/set';
 import { mapMember } from './map-member';
 import { isPromise } from '../utils/is-promise';
+import { asyncAware } from '../utils/async-aware';
 
 function setMemberReturnFn<TDestination extends Dictionary<TDestination> = any>(
     destinationMemberPath: string[],
@@ -78,29 +79,20 @@ export function mapMutate<
     isMapArray = false,
     isAsync?: IsAsync
 ): Result {
-    if (isAsync) {
-        return Promise.resolve().then(async () => {
-            await map({
+    return asyncAware(
+        () => {
+            return map({
                 sourceObject,
                 mapping,
                 setMemberFn: setMemberMutateFn(destinationObj),
                 getMemberFn: getMemberMutateFn(destinationObj),
                 options,
                 isMapArray,
-            }, true);
-        }) as Result;
-    }
-
-    map({
-        sourceObject,
-        mapping,
-        setMemberFn: setMemberMutateFn(destinationObj),
-        getMemberFn: getMemberMutateFn(destinationObj),
-        options,
-        isMapArray,
-    });
-
-    return undefined as unknown as Result;
+            }, isAsync)
+        },
+        () => isAsync ? Promise.resolve() : undefined,
+        isAsync
+    );
 }
 
 interface MapParameter<
@@ -157,37 +149,30 @@ export function map<
     const errorHandler = getErrorHandler(mapper);
     const metadataMap = getMetadataMap(mapper);
 
-    const destination: TDestination = mapDestinationConstructor(
+    const destination: TDestination | Promise<TDestination> = mapDestinationConstructor(
         sourceObject,
         destinationIdentifier
     );
-
-    // get extraArguments
-    const extraArguments = extraArgs?.(mapping, destination);
 
     // initialize an array of keys that have already been configured
     const configuredKeys: string[] = [];
 
     if (isAsync) {
-        return Promise.resolve<{
-            sourceObject: TSource;
-            destination: TDestination;
-          }>({
-              sourceObject,
-              destination,
-          }).then(async ({
-              sourceObject,
-              destination,
-          }) => {
+        return Promise.all([
+            sourceObject,
+            destination,
+        ]).then(async ([sourceObject, destination]) => {
+              const extraArguments = extraArgs?.(mapping, destination);
+
               if (!isMapArray) {
-                const beforeMap = mapBeforeCallback ?? mappingBeforeCallback;
-                if (beforeMap) {
-                    await beforeMap(sourceObject, destination, extraArguments);
-                }
+                  const beforeMap = mapBeforeCallback ?? mappingBeforeCallback;
+                  if (beforeMap) {
+                      await beforeMap(sourceObject, destination, extraArguments);
+                  }
               }
 
               await Promise.all(_mapInternalLogic<TSource, TDestination, true>({
-                  propsToMap: (propsToMap as Mapping<TSource, TDestination, true>[2]),
+                  propsToMap,
                   destination,
                   mapper,
                   setMemberFn,
@@ -223,17 +208,19 @@ export function map<
           }) as Result;
     }
 
+    const extraArguments = extraArgs?.(mapping, destination as TDestination)
+
     if (!isMapArray) {
         const beforeMap = mapBeforeCallback ?? mappingBeforeCallback;
         if (beforeMap) {
-            beforeMap(sourceObject, destination, extraArguments);
+            beforeMap(sourceObject, destination as TDestination, extraArguments);
         }
     }
 
     // map
     _mapInternalLogic({
         propsToMap,
-        destination,
+        destination: destination as TDestination,
         mapper,
         setMemberFn,
         getMemberFn,
@@ -249,7 +236,7 @@ export function map<
     if (!isMapArray) {
         const afterMap = mapAfterCallback ?? mappingAfterCallback;
         if (afterMap) {
-            afterMap(sourceObject, destination, extraArguments);
+            afterMap(sourceObject, destination as TDestination, extraArguments);
         }
     }
 
@@ -285,7 +272,7 @@ function _mapInternalLogic<
   metadataMap,
   isAsync,
 }: {
-  propsToMap: Mapping<TSource, TDestination, IsAsync>[2],
+  propsToMap: Mapping<TSource, TDestination>[2],
   destination: TDestination,
   mapper: Mapper,
   setMemberFn: MapParameter<TSource, TDestination>['setMemberFn'],
@@ -303,6 +290,7 @@ function _mapInternalLogic<
   const pushResolvable = (resolvable: any) => {
       if (isAsync !== true && isPromise(resolvable)) throw new Error('TODO');
       if (isAsync) resolvables.push(resolvable);
+      return resolvable;
   }
 
   for (let i = 0, length = propsToMap.length; i < length; i++) {
@@ -343,15 +331,9 @@ function _mapInternalLogic<
     // Set up a shortcut function to set destinationMemberPath on destination with value as argument
     const setMember = (valFn: () => unknown): any => {
         try {
-            const value = valFn();
-            if (isAsync) {
-                return Promise.resolve(value).then((value) => {
-                    return setMemberFn(destinationMemberPath, destination)(value)
-                });
-            } else {
-                if (isPromise(value)) throw new Error('TODO');
-                return setMemberFn(destinationMemberPath, destination)(value);
-            }
+            pushResolvable(asyncAware(() => valFn(), (value) => {
+                return setMemberFn(destinationMemberPath, destination)(value)
+            }, isAsync));
         } catch (originalError) {
             const errorMessage = `
 Error at "${destinationMemberPath}" on ${
@@ -373,7 +355,7 @@ Original error: ${originalError}`;
         transformationPreConditionPredicate &&
         !transformationPreConditionPredicate(sourceObject)
     ) {
-        pushResolvable(setMember(() => transformationPreConditionDefaultValue));
+        setMember(() => transformationPreConditionDefaultValue);
         continue;
     }
 
@@ -417,7 +399,7 @@ Original error: ${originalError}`;
             hasSameIdentifier ||
             isTypedConverted
         ) {
-            pushResolvable(setMember(() => mapInitializedValue));
+            setMember(() => mapInitializedValue);
             continue;
         }
 
@@ -431,7 +413,7 @@ Original error: ${originalError}`;
                 Object.prototype.toString.call(first).slice(8, -1) ===
                     'File'
             ) {
-                pushResolvable(setMember(() => mapInitializedValue.slice()));
+                setMember(() => mapInitializedValue.slice());
                 continue;
             }
 
@@ -447,7 +429,7 @@ Original error: ${originalError}`;
                 continue;
             }
 
-            pushResolvable(setMember(() =>
+            setMember(() =>
                 mapInitializedValue.map((each) =>
                     mapReturn(
                         getMapping(
@@ -459,7 +441,7 @@ Original error: ${originalError}`;
                         { extraArgs }
                     )
                 )
-            ));
+            );
             continue;
         }
 
@@ -485,23 +467,23 @@ Original error: ${originalError}`;
                 continue;
             }
 
-            pushResolvable(setMember(() =>
+            setMember(() =>
                 map({
                     mapping: nestedMapping,
                     sourceObject: mapInitializedValue as TSource,
                     options: { extraArgs },
                     setMemberFn: setMemberReturnFn,
                 }, isAsync)
-            ));
+            );
             continue;
         }
 
         // if is primitive
-        pushResolvable(setMember(() => mapInitializedValue));
+        setMember(() => mapInitializedValue);
         continue;
     }
 
-    pushResolvable(setMember(() =>
+    setMember(() =>
         mapMember(
             transformationMapFn,
             sourceObject,
@@ -513,7 +495,7 @@ Original error: ${originalError}`;
             destinationMemberIdentifier,
             isAsync,
         )
-    ));
+    );
   }
 
   return (isAsync === true ? resolvables : undefined) as IsAsync extends true ? any[] : undefined;

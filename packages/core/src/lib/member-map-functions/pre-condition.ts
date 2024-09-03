@@ -11,7 +11,7 @@ export function preCondition<
     TSelectorReturn = SelectorReturn<TDestination>
 >(
     predicate: ConditionPredicate<TSource>,
-    defaultValue?: TSelectorReturn
+    defaultValue?: TSelectorReturn | Promise<TSelectorReturn>
 ): PreConditionReturn<TSource, TDestination, TSelectorReturn> {
     return [predicate, defaultValue];
 }

@@ -14,9 +14,9 @@ export function mapFrom<
     TSelectorReturn = SelectorReturn<TDestination>
 >(
     from:
-        | ValueSelector<TSource, TDestination, TSelectorReturn>
-        | Resolver<TSource, TDestination, TSelectorReturn>
-): MapFromReturn<TSource, TDestination, TSelectorReturn> {
+        | ValueSelector<TSource, TDestination, TSelectorReturn | Promise<TSelectorReturn>>
+        | Resolver<TSource, TDestination, TSelectorReturn | Promise<TSelectorReturn>>
+): MapFromReturn<TSource, TDestination, TSelectorReturn | Promise<TSelectorReturn>> {
     if (isResolver(from)) {
         return [TransformationType.MapFrom, from.resolve.bind(from)];
     }

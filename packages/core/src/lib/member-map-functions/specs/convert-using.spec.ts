@@ -30,7 +30,7 @@ describe(convertUsing.name, () => {
             birthdayToStringConverter,
             (s) => s.birthday
         );
-        const result = convertUsingFn[MapFnClassId.fn](source);
+        const result = convertUsingFn[MapFnClassId.fn](source, false);
         expect(result).toEqual(source.birthday.toDateString());
     });
 });
