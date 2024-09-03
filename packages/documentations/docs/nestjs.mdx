@@ -139,6 +139,11 @@ export class UserProfile extends AutomapperProfile {
 
 `@automapper/nestjs` provides `MapInterceptor`. In cases where you do not care about annotating the correct return type for a **Controller#method** and want your **Service** to be a little cleaner, you can utilize the `MapInterceptor` to execute the mapping.
 
+:::tip
+Automapper's NestJS integration executes mapping by default asynchronously. It is possible to force it to be synchronous
+by passing `{ sync: true }` option to `MapInterceptor` decorator.
+:::
+
 ```ts
 import { UseInterceptors } from '@nestjs/common';
 import { MapInterceptor } from '@automapper/nestjs';
@@ -159,12 +164,18 @@ export class UserController {
 MapInterceptor(sourceModelType, destinationModelType, {
   isArray?: boolean;
   mapperName?: string;
+  sync?: boolean;
 } & MapOptions)
 ```
 
 ## `MapPipe`
 
 `@automapper/nestjs` provides `MapPipe`. When you want to transform the incoming request body before it gets to the route handler, you can utilize `MapPipe` to achieve this behavior
+
+:::tip
+Automapper's NestJS integration executes mapping by default asynchronously. It is possible to force it to be synchronous
+by passing `{ sync: true }` option to `MapPipe` decorator.
+:::
 
 ```ts
 import { MapPipe } from '@automapper/nestjs';
@@ -196,5 +207,6 @@ getFromQuery(@Query(MapPipe(User, UserDto)) user: UserDto) {
 MapPipe(sourceModelType, destinationModelType, {
   isArray?: boolean;
   mapperName?: string;
+  sync?: boolean;
 } & MapOptions)
 ```

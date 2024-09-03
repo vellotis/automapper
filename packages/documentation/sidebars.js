@@ -66,6 +66,7 @@ const sidebars = {
                 'mapping-configuration/for-self',
                 'mapping-configuration/naming-conventions',
                 'mapping-configuration/type-converters',
+                'mapping-configuration/async-mapping',
             ],
         },
         {
@@ -85,7 +86,6 @@ const sidebars = {
                 'misc/transformer-plugin',
                 'misc/mapped-types',
                 'misc/self-mapping',
-                'misc/fake-async',
             ],
         },
         'nestjs',

@@ -45,9 +45,9 @@ custom_edit_url: null
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `name?` | `string` |
+| Name     | Type     |
+|:---------|:---------|
+| `name?`  | `string` |
 
 #### Returns
 
@@ -84,11 +84,11 @@ or symbols as the injection token.
 
 ##### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `target` | `object` |
-| `key` | `string` \| `symbol` |
-| `index?` | `number` |
+| Name     | Type                 |
+|:---------|:---------------------|
+| `target` | `object`             |
+| `key`    | `string` \| `symbol` |
+| `index?` | `number`             |
 
 ##### Returns
 
@@ -106,18 +106,18 @@ ___
 
 #### Type parameters
 
-| Name | Type |
-| :------ | :------ |
-| `TSource` | extends `Dictionary`<`TSource`\> |
+| Name           | Type                                  |
+|:---------------|:--------------------------------------|
+| `TSource`      | extends `Dictionary`<`TSource`\>      |
 | `TDestination` | extends `Dictionary`<`TDestination`\> |
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `from` | `ModelIdentifier`<`TSource`\> |
-| `to` | `ModelIdentifier`<`TDestination`\> |
-| `options?` | { `isArray?`: `boolean` ; `mapperName?`: `string`  } & `MapOptions`<`TSource`, `TDestination`, `Record`<`string`, `any`\>\> |
+| Name       | Type                                                                                                                                                           |
+|:-----------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `from`     | `ModelIdentifier`<`TSource`\>                                                                                                                                  |
+| `to`       | `ModelIdentifier`<`TDestination`\>                                                                                                                             |
+| `options?` | { `isArray`: `boolean` = `false` ; `mapperName?`: `string`; `sync`: `boolean` = `false` } & `MapOptions`<`TSource`, `TDestination`, `Record`<`string`, `any`\>\> |
 
 #### Returns
 
@@ -135,18 +135,18 @@ ___
 
 #### Type parameters
 
-| Name | Type |
-| :------ | :------ |
-| `TSource` | extends `Dictionary`<`TSource`\> |
+| Name           | Type                                  |
+|:---------------|:--------------------------------------|
+| `TSource`      | extends `Dictionary`<`TSource`\>      |
 | `TDestination` | extends `Dictionary`<`TDestination`\> |
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `from` | `ModelIdentifier`<`TSource`\> |
-| `to` | `ModelIdentifier`<`TDestination`\> |
-| `options?` | { `isArray?`: `boolean` ; `mapperName?`: `string`  } & `MapOptions`<`TSource`, `TDestination`, `Record`<`string`, `any`\>\> |
+| Name       | Type                                                                                                                                                           |
+|:-----------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `from`     | `ModelIdentifier`<`TSource`\>                                                                                                                                  |
+| `to`       | `ModelIdentifier`<`TDestination`\>                                                                                                                             |
+| `options?` | { `isArray`: `boolean` = `false` ; `mapperName?`: `string`; `sync`: `boolean` = `false` } & `MapOptions`<`TSource`, `TDestination`, `Record`<`string`, `any`\>\> |
 
 #### Returns
 
@@ -164,8 +164,8 @@ ___
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
+| Name    | Type     |
+|:--------|:---------|
 | `name?` | `string` |
 
 #### Returns

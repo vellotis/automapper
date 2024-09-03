@@ -66,6 +66,7 @@ const sidebars = {
                 'mapping-configuration/for-self',
                 'mapping-configuration/naming-conventions',
                 'mapping-configuration/type-converters',
+                'mapping-configuration/async-mapping',
             ],
         },
         {

@@ -1,0 +1,46 @@
+---
+id: async-mapping
+title: Async Mapping
+sidebar_label: Async Mapping
+sidebar_position: 11
+---
+
+Automapper supports processing asynchronous mappings. Instead of calling [`Mapper::map`](../api/core/interfaces/Mapper#map)
+it is required to call [`Mapper::mapAsync`](../api/core/interfaces/Mapper#mapasync).
+
+:::caution
+
+If a mapping configuration includes asynchronous operations, but the mapping is executed by calling `Mapping::map`
+instead of `Mapping::mapAsync`, it will result with an error which requests the use of `Mapping::mapAsync`.
+
+:::
+
+An example below will give a slight overview of asynchronous mapping.
+
+```ts
+import { createMap, forMember, mapFrom } from '@automapper/core';
+
+createMap(
+    mapper,
+    User,
+    UserDto,
+    //                  👇 We are fetching the "fullName" manually
+    //                  👇          👇 so we need to define its retrieval operation
+    forMember((d) => d.fullName, mapFrom(async (source) => {
+        return await fetchFullName(source);
+    }
+);
+
+//                          👇 mapAsync is needed if any async operations are configured for the mapping profile
+const dto = await mapper.mapAsync(user, User, UserDto);
+```
+
+## Support
+
+The support for asynchronous processing among member mapping functions are listed in [MappingTransformation](../fundamentals/mapping#mappingtransformation).
+
+The asynchronous processing is supported also by
+  - [`afterMap`](./after-map) and [`beforeMap`](./before-map) mapping hooks, and
+  - [`destinationConstructor`](../api/core/interfaces/MappingStrategy#destinationConstructor),
+    [`postMap`](../api/core/interfaces/MappingStrategy#postmap) and
+    [`preMap`](../api/core/interfaces/MappingStrategy#premap) options in mapping strategy.
