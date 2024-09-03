@@ -1,20 +1,21 @@
 import { classes } from '@automapper/classes';
 import {
-  addProfile,
-  afterMap,
-  beforeMap,
-  condition,
-  convertUsing,
-  createMap,
-  createMapper,
-  forMember,
-  fromValue,
-  ignore,
-  mapDefer,
-  mapFrom, Mapper,
-  mapWith,
-  nullSubstitution,
-  undefinedSubstitution
+    addProfile,
+    afterMap,
+    beforeMap,
+    condition,
+    convertUsing,
+    createMap,
+    createMapper,
+    forMember,
+    fromValue,
+    ignore,
+    mapDefer,
+    mapFrom,
+    Mapper,
+    mapWith,
+    nullSubstitution,
+    undefinedSubstitution
 } from '@automapper/core';
 import { SimpleUserDto } from './dtos/simple-user.dto';
 import { SimpleUser } from './models/simple-user';

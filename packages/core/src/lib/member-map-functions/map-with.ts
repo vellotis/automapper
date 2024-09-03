@@ -1,9 +1,9 @@
 import {
-  Dictionary,
-  MapOptions,
-  MapWithReturn,
-  ModelIdentifier,
-  SelectorReturn, ValueSelectorAsyncable
+    Dictionary,
+    MapOptions,
+    MapWithReturn,
+    ModelIdentifier,
+    SelectorReturn,
 } from '../types';
 import { TransformationType, ValueSelector } from '../types';
 import { asyncAware } from '../utils/async-aware';

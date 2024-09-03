@@ -1,12 +1,12 @@
 import { classes } from '@automapper/classes';
 import {
-  addProfile,
-  CamelCaseNamingConvention,
-  createMap,
-  createMapper,
-  forMember,
-  ignore,
-  mapDefer,
+    addProfile,
+    CamelCaseNamingConvention,
+    createMap,
+    createMapper,
+    forMember,
+    ignore,
+    mapDefer,
 } from '@automapper/core';
 import { UserDto } from './dtos/user.dto';
 import { User } from './models/user';

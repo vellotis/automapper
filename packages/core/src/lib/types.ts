@@ -70,8 +70,8 @@ export type Selector<
 > = (obj: TObject) => TReturnType;
 
 export type SelectorAsyncAware<
-  TObject extends Dictionary<TObject> = any,
-  TReturnType = unknown
+    TObject extends Dictionary<TObject> = any,
+    TReturnType = unknown
 > = (obj: TObject, isAsync: boolean) => TReturnType;
 
 export type SelectorReturn<
@@ -85,12 +85,6 @@ export type ValueSelector<
     TDestination extends Dictionary<TDestination> = any,
     TValueReturn = SelectorReturn<TDestination>
 > = (source: TSource) => TValueReturn;
-
-export type ValueSelectorAsyncable<
-  TSource extends Dictionary<TSource> = any,
-  TDestination extends Dictionary<TDestination> = any,
-  TValueReturn = SelectorReturn<TDestination>
-> = (source: TSource) => TValueReturn | Promise<TValueReturn>;
 
 export interface Resolver<
     TSource extends Dictionary<TSource> = any,
@@ -396,7 +390,7 @@ export type MapWithReturn<
 ];
 
 export interface ConditionPredicate<
-  TSource extends Dictionary<TSource>
+    TSource extends Dictionary<TSource>
 > {
     (source: TSource): boolean | Promise<boolean>;
 }

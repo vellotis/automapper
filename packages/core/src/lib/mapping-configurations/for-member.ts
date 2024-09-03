@@ -18,8 +18,7 @@ import { isPrimitiveArrayEqual } from '../utils/is-primitive-array-equal';
 export function forMember<
     TSource extends Dictionary<TSource>,
     TDestination extends Dictionary<TDestination>,
-    TMemberType = SelectorReturn<TDestination>,
-    IsAsync extends boolean = false,
+    TMemberType = SelectorReturn<TDestination>
 >(
     selector: Selector<TDestination, TMemberType>,
     ...fns: [
@@ -46,7 +45,7 @@ export function forMember<
     const mappingProperty: MappingProperty<TSource, TDestination> = [
         memberPath,
         [
-            mapMemberFn as MemberMapReturn<TSource, TDestination, IsAsync>,
+            mapMemberFn,
             preCondOrMapMemberFn as PreConditionReturn<
                 TSource,
                 TDestination,

@@ -1,12 +1,12 @@
 import { getErrorHandler, getMetadataMap } from '../symbols';
 import type {
-  Constructor,
-  Dictionary,
-  MapInitializeReturn,
-  MapOptions,
-  Mapper,
-  Mapping, MemberMapReturn,
-  MetadataIdentifier
+    Constructor,
+    Dictionary,
+    MapInitializeReturn,
+    MapOptions,
+    Mapper,
+    Mapping,
+    MetadataIdentifier
 } from '../types';
 import { MapFnClassId, MetadataClassId, TransformationType } from '../types';
 import { assertUnmappedProperties } from '../utils/assert-unmapped-properties';
@@ -258,33 +258,33 @@ function _mapInternalLogic<
     TDestination extends Dictionary<TDestination>,
     IsAsync extends boolean = false
 >({
-  propsToMap,
-  destination,
-  mapper,
-  setMemberFn,
-  getMemberFn,
-  sourceObject,
-  destinationIdentifier,
-  extraArguments,
-  configuredKeys,
-  errorHandler,
-  extraArgs,
-  metadataMap,
-  isAsync,
+    propsToMap,
+    destination,
+    mapper,
+    setMemberFn,
+    getMemberFn,
+    sourceObject,
+    destinationIdentifier,
+    extraArguments,
+    configuredKeys,
+    errorHandler,
+    extraArgs,
+    metadataMap,
+    isAsync,
 }: {
-  propsToMap: Mapping<TSource, TDestination>[2],
-  destination: TDestination,
-  mapper: Mapper,
-  setMemberFn: MapParameter<TSource, TDestination>['setMemberFn'],
-  getMemberFn: MapParameter<TSource, TDestination>['getMemberFn'],
-  sourceObject: TSource,
-  destinationIdentifier: MetadataIdentifier<TDestination>,
-  extraArguments?: Record<string, any>,
-  configuredKeys: string[],
-  errorHandler: ReturnType<typeof getErrorHandler>,
-  extraArgs: MapOptions<TSource, TDestination>['extraArgs'],
-  metadataMap: ReturnType<typeof getMetadataMap>,
-  isAsync?: IsAsync
+    propsToMap: Mapping<TSource, TDestination>[2],
+    destination: TDestination,
+    mapper: Mapper,
+    setMemberFn: MapParameter<TSource, TDestination>['setMemberFn'],
+    getMemberFn: MapParameter<TSource, TDestination>['getMemberFn'],
+    sourceObject: TSource,
+    destinationIdentifier: MetadataIdentifier<TDestination>,
+    extraArguments?: Record<string, any>,
+    configuredKeys: string[],
+    errorHandler: ReturnType<typeof getErrorHandler>,
+    extraArgs: MapOptions<TSource, TDestination>['extraArgs'],
+    metadataMap: ReturnType<typeof getMetadataMap>,
+    isAsync?: IsAsync
 }): (IsAsync extends true ? any[] : undefined) {
   const resolvables: any[] = [];
   const pushResolvable = (resolvable: any) => {

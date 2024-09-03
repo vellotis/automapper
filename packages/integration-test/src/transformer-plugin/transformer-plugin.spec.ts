@@ -1,17 +1,17 @@
 import automapperTransformerPlugin, { before } from '@automapper/classes/transformer-plugin';
 import {
-  CompilerOptions,
-  createProgram,
-  ModuleKind,
-  NewLineKind,
-  ScriptTarget,
-  transpileModule
+    CompilerOptions,
+    createProgram,
+    ModuleKind,
+    NewLineKind,
+    ScriptTarget,
+    transpileModule
 } from 'typescript/lib/tsserverlibrary';
 import {
-  compiledCreateSkillRequestDto,
-  compiledSkillEntity,
-  createSkillRequestDtoText,
-  skillEntityText
+    compiledCreateSkillRequestDto,
+    compiledSkillEntity,
+    createSkillRequestDtoText,
+    skillEntityText
 } from './issues/486/models';
 
 import { userModelText, userModelTextStrict, userModelTranspiledText, userModelTranspiledTextESM } from './model';
